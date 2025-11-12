@@ -1,0 +1,21 @@
+/**
+ * 项目公共配置文件
+ * 统一管理版本号
+ */
+
+// 版本配置
+def versionCode = 1
+def versionName = "1.0"
+def appName = "LidiaWeather"
+def isDebug = false
+
+// 设置到 rootProject.ext，供 app 模块使用
+rootProject.ext {
+    set("versionCode", versionCode)
+    set("versionName", versionName)
+    set("appName", appName)
+    set("isDebug", isDebug)
+}
+
+println("=================> Configs loaded!")
+println("=================> Version: versionName: v${versionName}    versionCode: ${versionCode}   appName: ${appName}")

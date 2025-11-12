@@ -1,5 +1,19 @@
+import java.text.SimpleDateFormat
+
 plugins {
     alias(libs.plugins.android.application)
+}
+
+apply from: "../config/settings.gradle"
+
+
+def releaseTime() {
+    return new Date().format("yyyy-MM-dd_HH-mm-ss")
+}
+
+
+def currentData() {
+    return new SimpleDateFormat("yy_MM_dd").format(new Date())
 }
 
 android {
@@ -16,16 +30,188 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
+//    buildTypes {
+//        release {
+//            minifyEnabled false
+//            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+//        }
+//    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
+
+    flavorDimensions "type", "version"
+
+    signingConfigs {
+        test1 {
+            storeFile file('../jks/test2.jks')
+            storePassword "123456"
+            keyAlias "key0"
+            keyPassword "123456"
+        }
+    }
+
+    buildTypes {
+        other {
+            debuggable true
+            jniDebuggable true
+            zipAlignEnabled true
+            minifyEnabled false
+            shrinkResources false
+            signingConfig null // 配置debug模式下的签名，在productFlavors里面配置
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-project.txt'
+            matchingFallbacks = ['debug','release']
+        }
+
+        debug {
+            debuggable true
+            jniDebuggable true
+            zipAlignEnabled true
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-project.txt'
+        }
+
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+
+    }
+
+    productFlavors {
+        google {
+            dimension "type"
+        }
+
+        market {
+            dimension "type"
+        }
+
+        Lidia {
+            signingConfig signingConfigs.test1
+            dimension "version"
+            resValue "string", "app_name", rootProject.appName
+        }
+
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    /**
+     * 自定义apk文件名
+     */
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            def fileName
+//            println("=====================> isCurrentFlavorNotNull(): " + isCurrentFlavorNotNull())
+            if(outputFile != null && outputFile.name.endsWith('.apk')) {
+                if (variant.buildType.name == ('release')) {
+                    def channel = "hyym001"
+                    // 这里只是设置outputFileName这个变量，只有release才会设置，打包release时输出apk就会在该路径下
+                    fileName = "${rootProject.appName}_v${defaultConfig.versionName}_${defaultConfig.versionCode}_${releaseTime()}_${channel}_${rootProject.isDebug ? "Debug" : "Release"}.apk"
+                    outputFileName = new File("../../../../../../outputApk/${new SimpleDateFormat("yy_MM_dd").format(new Date())}", fileName).toString()
+                }
+            }
+        }
+
+        /**
+         * mapping文件
+         **/
+        if (variant.getBuildType().isMinifyEnabled()) {
+            variant.assemble.doLast {
+                String desktopDir = "${rootProject.rootDir}\\outputMapping"
+                File cacheFile = new File(desktopDir + java.io.File.separator + (new java.text.SimpleDateFormat("yy_MM_dd").format(new Date())))
+                if (!cacheFile.exists())
+                    cacheFile.mkdirs()
+                def mappingDir = cacheFile.getPath()
+                if (variant.mappingFile.exists()) {
+                    def appName = rootProject.appName
+                    def copyName = "${appName}_ ${defaultConfig.versionCode}_${defaultConfig.versionName}_${releaseTime()}_apk.txt"
+                    copy {
+                        from variant.mappingFile
+                        into mappingDir
+                        rename {
+                            copyName
+                        }
+                    }
+                }
+
+            }
+        }
+    }
+
+    // 备份aab
+    /**
+     * 这个文件名有问题，中间少了一条 -
+     * "app-${rootProject.ext.currentFlavor}-release.aab"
+     */
+    tasks.whenTaskAdded { task ->
+        if (task.name.startsWith("bundle")) {
+//                println("=================================================> task.name: " + task.name)
+            def flavor = task.name.substring("bundle".length()).uncapitalize()
+//                println("=================================================> equalsIgnoreCase2 flavor: " + flavor)
+            println("==================================================================================================================================================> equalsIgnoreCase1 ")
+            def renameTaskName = "rename${task.name.capitalize()}Aab"
+            println("=================> equalsIgnoreCase2 flavor: " + flavor)
+            def fromPath = "${buildDir}\\outputs\\bundle\\${flavor}\\"
+            println("=================> equalsIgnoreCase3 fromPath: " + fromPath)
+            // app-google-ayome-release.aab
+            def appName = "FunnyCalculator"
+            def group = "google"
+            def currentFlavor = "Lidia"
+            def channel = "test1"
+            def isDebug = false
+
+            def archive = "${project.name}-${group}-${currentFlavor}-release.aab"
+            println("=================> equalsIgnoreCase3 currentFlavor: " + "${currentFlavor}")
+            println("=================> equalsIgnoreCase3 archive: " + archive)
+            def myName = "${project.appName}_v${defaultConfig.versionName}_${defaultConfig.versionCode}_${releaseTime()}_${channel}_${rootProject.isDebug ? "Debug" : "Release"}.aab"
+            def dest = "../outputApk/${currentData()}/"
+            Task renameTask = tasks.create(renameTaskName) {
+                doLast {
+                    copy {
+                        println("=================> equalsIgnoreCase2 copy: ")
+                        from new File("${fromPath}${archive}")
+                        println("=================> equalsIgnoreCase3 from: " + "${fromPath}${archive}")
+                        into dest
+                        println("=================> equalsIgnoreCase3 dest: " + dest)
+                        rename {
+                            myName
+                        }
+                    }
+                }
+            }
+
+            task.finalizedBy(renameTaskName)
+            def copyMappingTaskName = "copy${task.name.capitalize()}Mapping"
+            def mappingFromPath = "${buildDir}/outputs/mapping/${flavor}/"
+            String desktopDir = "${rootProject.rootDir}\\outputMapping"
+            File cacheFile = new File(desktopDir + java.io.File.separator + new java.text.SimpleDateFormat("yy_MM_dd").format(new Date()));
+            if (!cacheFile.exists())
+                cacheFile.mkdirs()
+            def mappingDestDir = cacheFile.getPath()
+            def mappingFileName = "${project.appName}_v${defaultConfig.versionName}_${defaultConfig.versionCode}_${releaseTime()}_aab.txt"
+            tasks.create(copyMappingTaskName) {
+                doLast {
+                    copy {
+                        from new File("${mappingFromPath}mapping.txt")
+                        into mappingDestDir
+                        rename {
+                            mappingFileName
+                        }
+                    }
+                }
+            }
+            renameTask.finalizedBy(copyMappingTaskName)
+
+        }
+    }
+
 }
 
 dependencies {
