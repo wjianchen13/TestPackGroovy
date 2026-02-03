@@ -20,6 +20,20 @@ android {
     namespace 'com.lyk.mm.testpackgroovy'
     compileSdk 35
 
+    bundle {
+        language {
+            enableSplit = false
+        }
+        density {
+            // This property is set to true by default.
+            enableSplit = false
+        }
+        abi {
+            // This property is set to true by default.
+            enableSplit = false
+        }
+    }
+
     defaultConfig {
         applicationId "com.lyk.mm.testpackgroovy"
         minSdk 24
@@ -28,6 +42,13 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            //设置支持的SO库架构
+            abiFilters "armeabi-v7a","arm64-v8a"
+        }
+
+//        resConfigs "en", "ar", "tr"
     }
 
 //    buildTypes {
